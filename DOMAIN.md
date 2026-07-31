@@ -17,7 +17,7 @@
 
 | 类型 | 主机名 / Name | 值 / Value | 说明 |
 |------|---------------|------------|------|
-| CNAME | `jiajia` | `jiajia-source.github.io` | 末尾的 `.` 可加可不加，取决于 DNS 商 |
+| CNAME | `@`（或留空，代表 `jiajia.eu.org` 本身） | `jiajia-source.github.io` | 末尾的 `.` 可加可不加，取决于 DNS 商 |
 
 > 不需要 A 记录（A 记录只用于裸域 `example.com`）。
 > 若用 Cloudflare，记录默认走代理（橙色云）也可，GitHub 证书照常签发；
@@ -69,7 +69,7 @@ curl -s -X PUT \
 5. **等待审核邮件**：注意查收（含垃圾邮件），标题类似
    `request [...] (domain XXX.EU.ORG) accepted` 表示通过。
 6. **添加解析**：审核通过后，在 DNS 商后台加第一节的 **CNAME 记录**
-   （`jiajia` → `jiajia-source.github.io`）。
+   （`@` → `jiajia-source.github.io`，即让 `jiajia.eu.org` 本身指向 GitHub）。
 7. **绑定 + HTTPS**：按第二节操作，GitHub 自动签发证书并开启强制 HTTPS。
 
 ### 备注
