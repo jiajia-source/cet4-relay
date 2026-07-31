@@ -1,0 +1,8 @@
+# 统一文本换行符为 LF，避免 Windows / macOS / Linux 混用导致的差异噪音
+* text=auto eol=lf
+
+# 二进制资源显式声明，避免被当文本处理
+*.mp3 binary
+*.png binary
+*.svg text
+*.ico binary

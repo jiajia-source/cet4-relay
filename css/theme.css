@@ -1,0 +1,149 @@
+/* ===== 马卡龙主题 · 软萌少女风 ===== */
+:root {
+  /* 主色：浅粉 + 奶白 */
+  --pink-50:  #FFF7FB;
+  --pink-100: #FFEAF4;
+  --pink-200: #FFD9EC;
+  --pink-300: #FFC2E0;
+  --pink-400: #FFA9D4;
+  --pink-500: #FF8FC4;
+  --cream:    #FFFDF9;
+  --cream-2:  #FFF4EE;
+
+  /* 辅助色 */
+  --lav:      #C9BBF2;   /* 薰衣草 */
+  --mint:     #BDEBD6;   /* 薄荷 */
+  --lemon:    #FCE9A8;   /* 柠檬 */
+  --sky:      #BFE0F2;   /* 天蓝 */
+
+  /* 文本（柔和紫酱） */
+  --ink:      #8A6378;
+  --ink-soft: #B08FA0;
+  --ink-strong:#6E4B60;
+
+  /* 强调 */
+  --accent:   #FF8FB8;
+  --accent-2: #B8A6F0;
+
+  /* 圆角 */
+  --r-lg: 28px;
+  --r-md: 20px;
+  --r-sm: 14px;
+  --r-pill: 999px;
+
+  /* 阴影（轻盈） */
+  --shadow: 0 10px 30px rgba(255, 150, 195, 0.22);
+  --shadow-sm: 0 6px 16px rgba(255, 150, 195, 0.18);
+  --shadow-inset: inset 0 0 0 2px rgba(255,255,255,0.6);
+
+  --font: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--pink-100), transparent 60%),
+    radial-gradient(900px 500px at 110% 10%, #EAE4FB, transparent 55%),
+    linear-gradient(160deg, var(--cream) 0%, var(--pink-50) 100%);
+  background-attachment: fixed;
+}
+
+/* 柔和滚动条 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--pink-300); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== 云朵卡片 ===== */
+.cloud-card {
+  position: relative;
+  background: var(--cream);
+  border: 2px solid var(--pink-200);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 22px 24px;
+}
+/* 云朵虚线内描边 */
+.cloud-card::after {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed var(--pink-300);
+  border-radius: calc(var(--r-lg) - 8px);
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* ===== 圆角软按钮 ===== */
+.btn {
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  padding: 11px 20px;
+  border-radius: var(--r-pill);
+  background: linear-gradient(135deg, var(--pink-400), var(--accent));
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s ease, box-shadow .15s ease, filter .15s ease;
+}
+.btn:hover { transform: translateY(-2px); filter: brightness(1.03); }
+.btn:active { transform: translateY(0); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.btn.soft {
+  background: var(--pink-100);
+  color: var(--ink-strong);
+  box-shadow: none;
+  border: 2px solid var(--pink-200);
+}
+.btn.lav { background: linear-gradient(135deg, var(--lav), var(--accent-2)); }
+.btn.mint { background: linear-gradient(135deg, #9FE0C0, var(--mint)); color: #2f6b52; }
+.btn.ghost { background: transparent; color: var(--accent); box-shadow: none; border: 2px solid var(--pink-300); }
+.btn.sm { padding: 7px 14px; font-size: 13px; }
+
+/* 小标签 / 胶囊 */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 12px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--pink-100);
+  color: var(--ink-strong);
+  border: 1px solid var(--pink-200);
+}
+.pill.lav { background: #EFEAFC; color: #6b5bb0; border-color: var(--lav); }
+.pill.mint { background: #E7F7EF; color: #2f6b52; border-color: var(--mint); }
+.pill.lemon { background: #FDF6DD; color: #9a7b1e; border-color: var(--lemon); }
+
+/* 文本域 / 输入框（软圆角） */
+.input, .textarea, select.input {
+  font-family: var(--font);
+  font-size: 15px;
+  color: var(--ink-strong);
+  background: var(--cream);
+  border: 2px solid var(--pink-200);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.input:focus, .textarea:focus {
+  border-color: var(--pink-400);
+  box-shadow: 0 0 0 4px rgba(255,160,210,.2);
+}
+.textarea { width: 100%; min-height: 120px; resize: vertical; line-height: 1.7; }
+
+/* 通用文字 */
+h1,h2,h3 { color: var(--ink-strong); margin: 0 0 8px; }
+.muted { color: var(--ink-soft); }
+.center { text-align: center; }

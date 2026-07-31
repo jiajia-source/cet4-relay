@@ -1,0 +1,34 @@
+# ===== 真题听力音频 =====
+# 本仓库已包含 4 套四级真题原声（assets/audio/cet4-2025-*.mp3），
+# 用于「真题套卷」在线播放，使 GitHub Pages 部署后功能完整。
+# ⚠️ 单文件最大约 33MB，超过 GitHub 网页上传 25MB 限制，
+#    必须用 git 命令行推送（见 DEPLOY.md），不能用网页直接拖拽上传。
+# ⚠️ 音频版权归原考试机构所有，仅供个人学习使用；若你介意，
+#    可执行 `git rm assets/audio/*.mp3` 移除，听力模块会优雅降级
+#    （其余 44 篇材料改用浏览器语音合成朗读，不受影响）。
+#    完整的 1.2GB 真题听力备份不在本仓库（体积过大），请自行保管。
+assets/audio/*.m4a
+assets/audio/*.wav
+
+# ===== 依赖与构建产物 =====
+node_modules/
+dist/
+build/
+*.log
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 本地私密配置 =====
+# 若你把自己的 Supabase 地址与 key 单独抽成本地文件，放这里不会被提交
+js/core/sync.local.js
+.env
+.env.local
+
+# ===== 用户个人进度备份 =====
+四级进度_*.json

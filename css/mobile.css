@@ -1,0 +1,299 @@
+/* ===========================================================================
+ * mobile.css —— 移动端适配 · 触摸反馈 · 发音状态 · 轻提示
+ * ---------------------------------------------------------------------------
+ * 加载顺序：必须放在 theme/layout/animations/modules 之后，靠层叠顺序覆盖。
+ *
+ * 设计红线：不改动桌面端任何视觉。
+ *   - 所有布局调整一律写在 @media 里，桌面宽度不受影响；
+ *   - 配色全部复用 theme.css 的 CSS 变量，不引入新色系；
+ *   - 只做「挤压 / 溢出 / 触摸手感 / 状态反馈」这四类修补。
+ * =========================================================================== */
+
+/* ===========================================================================
+ * 1. 触摸基础：去掉点击高亮方块、消除 300ms 延迟、禁止横向溢出
+ * =========================================================================== */
+html {
+  -webkit-text-size-adjust: 100%;   /* 安卓横屏时禁止浏览器擅自放大字号 */
+  text-size-adjust: 100%;
+}
+body {
+  -webkit-tap-highlight-color: transparent;  /* 去掉安卓点击时的灰色方块 */
+  overscroll-behavior-y: contain;            /* 列表滑到底不再带动整页回弹 */
+}
+button, .btn, .nav-item, .home-card, .wl-play, .pill, a, [role="button"], label, select {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;                /* 关键：消除移动端 300ms 点击延迟 */
+}
+/* 媒体与超长英文单词不许把容器撑破 */
+img, video, audio, canvas, svg { max-width: 100%; }
+.module-panel, .module-body, .main, .home-card, .cloud-card { min-width: 0; }
+
+/* ===========================================================================
+ * 2. 按压反馈：所有可点元素按下即有形变，指腹能"感觉"到点中了
+ * =========================================================================== */
+
+/* 桌面：极轻微下沉，保留原有 hover 手感 */
+.btn:active, .checkin-btn:active, .backup-btn:active { transform: translateY(1px) scale(.992); }
+
+/* 触摸设备：明显一点的回弹缩放（hover:none 精准命中手机/平板，不误伤鼠标） */
+@media (hover: none) and (pointer: coarse) {
+  .btn:active,
+  .btn.sm:active,
+  .nav-item:active,
+  .checkin-btn:active,
+  .backup-btn:active,
+  .home-card:active,
+  .wl-play:active,
+  .wl-chip:active,
+  .pill:active,
+  button:active {
+    transform: scale(.955);
+    filter: brightness(.97);
+    transition: transform .06s ease, filter .06s ease;
+  }
+  /* hover 态在触摸屏上会「粘住」，这里统一取消 */
+  .btn:hover, .nav-item:hover, .home-card:hover,
+  .checkin-btn:hover, .backup-btn:hover, .wl-play:hover {
+    transform: none;
+    filter: none;
+  }
+}
+
+/* ===========================================================================
+ * 3. 发音按钮状态：加载中 / 播放中 / 失败
+ *    class 由 js/core/audio.js 自动挂载，业务模块无需改代码。
+ *    （Shadow DOM 内部的按钮由 audio.js 注入同名样式，见 SHADOW_STATE_CSS）
+ * =========================================================================== */
+@keyframes ttsBlink { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@keyframes ttsPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+@keyframes ttsShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+@keyframes ttsRing  { 0% { box-shadow: 0 0 0 0 rgba(255,143,196,.55); } 100% { box-shadow: 0 0 0 12px rgba(255,143,196,0); } }
+
+/* 加载中：等待引擎起播，做呼吸式明暗 */
+.spk-loading { opacity: .8; animation: ttsBlink .9s ease-in-out infinite; }
+
+/* 播放中：轻微脉动 + 粉色光圈，一眼看出是哪条在响 */
+.spk-playing {
+  animation: ttsPulse .8s ease-in-out infinite;
+  box-shadow: 0 0 0 3px rgba(255, 143, 196, .35);
+}
+.wl-play.spk-playing { background: var(--pink-300); color: #fff; }
+.btn.play-lg.spk-playing { filter: saturate(1.15); }
+
+/* 失败：抖一下 + 去饱和，2.2 秒后由脚本自动移除 */
+.spk-error {
+  animation: ttsShake .4s ease;
+  filter: grayscale(.5);
+  border-color: #ffb59d !important;
+}
+.wl-play.spk-error { background: #ffe6dc; color: #b4552f; }
+
+/* 点击涟漪（闯关/消消乐里 .ring 原本只在部分模块定义，这里补全） */
+.ring { animation: ttsRing .55s ease-out; }
+
+/* ===========================================================================
+ * 4. 轻提示 toast（js/core/toast.js 使用）
+ * =========================================================================== */
+.wb-toast-wrap {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;          /* 容器不吃点击，只有卡片本体能点 */
+  max-width: 340px;
+}
+.wb-toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-family: var(--font);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink-strong);
+  background: var(--cream);
+  border: 2px solid var(--pink-200);
+  box-shadow: 0 8px 24px rgba(255, 150, 195, .28);
+  animation: wbToastIn .24s cubic-bezier(.3, 1.3, .5, 1);
+  cursor: pointer;
+}
+.wb-toast-ico { font-size: 15px; line-height: 1.4; flex: 0 0 auto; }
+.wb-toast-txt { flex: 1 1 auto; word-break: break-word; }
+.wb-toast-warn    { background: #FFF9EE; border-color: #FFD9A8; color: #8a6a2f; }
+.wb-toast-error   { background: #FFF1F1; border-color: #FFB8B8; color: #9c4a4a; }
+.wb-toast-success { background: #F1FBF6; border-color: var(--mint);  color: #2f6b52; }
+.wb-toast-out { animation: wbToastOut .22s ease forwards; }
+
+@keyframes wbToastIn  { from { opacity: 0; transform: translateY(-10px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes wbToastOut { to   { opacity: 0; transform: translateY(-8px) scale(.97); } }
+
+/* ===========================================================================
+ * 5. 平板 / 手机竖屏（≤ 700px）
+ *    layout.css 在 860px 已把侧边栏改为横排，这里进一步解决按钮挤压与溢出。
+ * =========================================================================== */
+@media (max-width: 700px) {
+  body { overflow-x: hidden; }
+
+  /* 视口高度用 dvh，避开安卓地址栏收起时的 100vh 抖动 */
+  .app-shell { min-height: 100vh; }
+
+  /* 顶部导航：从"多行换行"改成"单行横向滑动"，杜绝 11 个按钮堆四排 */
+  .sidebar { padding: 10px 12px; gap: 8px; }
+  .nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-item {
+    flex: 0 0 auto;
+    white-space: nowrap;          /* 关键：文字不再被压成两行 */
+    font-size: 13.5px;
+    padding: 9px 13px;
+  }
+
+  .brand { padding: 0 4px; }
+  .brand-text { font-size: 16px; }
+  .brand-emoji { font-size: 22px; }
+
+  .sidebar-foot { flex: 1 1 100%; margin: 0; flex-wrap: wrap; gap: 8px; }
+  .food-chip { padding: 5px 12px; font-size: 13.5px; }
+  .checkin-btn { padding: 8px 14px; font-size: 13.5px; }
+  .backup-row { flex: 1 1 auto; }
+  .backup-btn { font-size: 12px; padding: 7px 6px; }
+
+  .topbar { padding: 12px 14px 4px; }
+  .topbar-title { font-size: 18.5px; }
+  .topbar-sub { font-size: 12.5px; }
+
+  .module-stage { padding: 4px 12px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .module-head h2 { font-size: 18px; }
+  .module-desc { font-size: 12.5px; }
+
+  .cloud-card { padding: 16px 14px; border-radius: 22px; }
+  .cloud-card::after { inset: 6px; border-radius: 16px; }
+
+  .home-hero { padding: 12px 14px; }
+  .home-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .home-stats { gap: 8px; }
+  /* 首页统计卡的 min-width 是行内样式，必须 !important 才盖得住 */
+  .home-stats .cloud-card { min-width: 104px !important; padding: 10px 12px !important; }
+
+  /* 输入框字号 ≥16px，防止 iOS / 部分安卓聚焦时整页自动放大导致内容溢出 */
+  .input, .textarea, select.input, input, textarea, select { font-size: 16px; }
+
+  /* 触摸目标不小于 40px，避免误触 */
+  .btn { min-height: 40px; padding: 10px 16px; }
+  .btn.sm { min-height: 34px; padding: 7px 12px; font-size: 12.5px; }
+  .wl-play { min-height: 30px; }
+
+  /* toast 改为顶部居中、贴合屏宽 */
+  .wb-toast-wrap {
+    left: calc(12px + env(safe-area-inset-left, 0px));
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    max-width: none;
+    align-items: stretch;
+  }
+}
+@supports (min-height: 100dvh) {
+  @media (max-width: 700px) { .app-shell { min-height: 100dvh; } }
+}
+
+/* ===========================================================================
+ * 6. 小屏手机（≤ 430px，覆盖绝大多数安卓机竖屏）
+ * =========================================================================== */
+@media (max-width: 430px) {
+  .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .home-card { padding: 10px 11px; border-radius: 16px; }
+  .hc-emoji { font-size: 22px; }
+  .hc-title { font-size: 14px; }
+  .hc-desc  { font-size: 11.5px; }
+
+  .home-hero h2 { font-size: 18px; }
+  .home-hero p  { font-size: 12.5px; }
+  .home-hero-dog .cute-dog { width: 56px; }
+
+  .nav-item { font-size: 13px; padding: 8px 11px; }
+  .module-stage { padding: 4px 10px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .cloud-card { padding: 14px 12px; }
+
+  /* 超长英文单词 / 音标 / 例句一律允许折行，绝不撑破卡片 */
+  .wl-word, .wl-phon, .wl-cn, .wl-section .val,
+  .ls-line, .rd-sent, .es-line { word-break: break-word; overflow-wrap: anywhere; }
+}
+
+/* ===========================================================================
+ * 7. 极小屏（≤ 360px，老款安卓 / 折叠屏外屏）
+ * =========================================================================== */
+@media (max-width: 360px) {
+  .brand-text { display: none; }         /* 品牌文字让位给导航 */
+  .nav-item { font-size: 12.5px; padding: 8px 10px; }
+  .btn { font-size: 13.5px; padding: 9px 13px; }
+  .food-chip { font-size: 12.5px; padding: 4px 10px; }
+  .checkin-btn { font-size: 12.5px; padding: 7px 11px; }
+  .backup-btn { font-size: 11px; }
+  .home-grid { gap: 8px; }
+  .topbar-title { font-size: 17px; }
+}
+
+/* ===========================================================================
+ * 8. 手机横屏 / 矮视口
+ *    两种情况：① 宽度仍 <860px（侧栏已横排）；② 宽屏横屏但高度很矮，
+ *    此时 layout.css 的 240px 竖向侧栏会装不下 11 个导航项 —— 让它可滚动。
+ * =========================================================================== */
+@media (max-height: 560px) and (orientation: landscape) {
+  .sidebar { padding-top: 12px; padding-bottom: 12px; gap: 8px; }
+  .nav { overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav-item { padding: 8px 12px; font-size: 13.5px; }
+  .brand { padding-bottom: 6px; }
+
+  .topbar { padding: 8px 16px 2px; }
+  .module-stage { padding-top: 2px; padding-bottom: 10px; }
+  .home-hero { padding: 8px 14px; margin-bottom: 8px; }
+  .home-hero-dog .cute-dog { width: 46px; }
+  .home-hero h2 { font-size: 17px; margin: 2px 0; }
+  .home-hero p { display: none; }        /* 横屏寸土寸金，隐藏这段说明文字 */
+  .home-stats { margin-top: 6px; }
+}
+
+/* 横屏 + 窄宽（把导航压成一行滑动，主内容尽量多留高度） */
+@media (max-width: 900px) and (max-height: 480px) and (orientation: landscape) {
+  .sidebar { flex-direction: row; flex-wrap: wrap; height: auto; position: static; }
+  .nav { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; flex: 1 1 100%; }
+  .nav-item { flex: 0 0 auto; white-space: nowrap; }
+  .sidebar-foot { flex-direction: row; margin-left: auto; }
+}
+
+/* ===========================================================================
+ * 9. 刘海屏 / 挖孔屏安全区（配合 index.html 的 viewport-fit=cover）
+ * =========================================================================== */
+@supports (padding: max(0px)) {
+  @media (max-width: 860px) {
+    .sidebar {
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
+    .module-stage {
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
+  }
+}
+
+/* ===========================================================================
+ * 10. 无障碍与省电：尊重系统的"减少动态效果"设置
+ * =========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .spk-loading, .spk-playing, .spk-error, .ring,
+  .anim-float, .anim-pulse { animation: none !important; }
+  * { transition-duration: .01ms !important; }
+}

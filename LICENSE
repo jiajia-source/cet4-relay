@@ -1,0 +1,44 @@
+MIT License
+
+Copyright (c) 2026 CET4 Vocab Workbench Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+附注（Notice）
+
+本仓库的**源代码**以 MIT 协议开放。仓库中**包含** 4 套四级真题原声
+（`assets/audio/cet4-2025-*.mp3`），仅用于「真题套卷」在线播放、方便学习者直接在
+GitHub Pages 上完整使用本工具。
+
+⚠️ 音频版权声明：上述 mp3 录音的版权归原考试机构 / 原权利人所有，本仓库仅作
+**个人学习用途**的附带分发；若权利人提出异议或你所在地区法律不允许，请执行
+`git rm assets/audio/*.mp3` 移除后再分发。本 MIT 协议仅覆盖源代码，不覆盖音频的
+再授权。
+
+The **source code** in this repository is released under the MIT License.
+The repository **does include** 4 CET-4 examination recordings
+(`assets/audio/cet4-2025-*.mp3`) solely to make the "exam sets" player work out
+of the box on GitHub Pages.
+
+⚠️ Audio copyright: those recordings remain the property of their respective
+copyright holders and are bundled here for personal study only. If objected to,
+run `git rm assets/audio/*.mp3` before redistributing. The MIT License covers
+source code only, not the audio.

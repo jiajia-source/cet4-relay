@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- ===================== 移动端视口 =====================
+       width=device-width      按设备宽度布局，杜绝横向滚动条
+       initial-scale=1.0       初始不缩放
+       minimum/maximum-scale   允许用户在 1~5 倍之间双指缩放（无障碍需要，不锁死）
+       viewport-fit=cover      刘海屏铺满，配合 css 里的 env(safe-area-inset-*)
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+
+  <title>🐾 四级软萌备考工作台</title>
+  <meta name="description" content="四级单词背诵 + 听力阅读作文 + 金毛小狗养成，纯静态前端，离线可用，多端云同步。" />
+
+  <!-- ===================== 移动端与国产内核兼容 ===================== -->
+  <meta name="theme-color" content="#ff8fab" />
+  <!-- 禁止把数字识别成电话号码后变成蓝色链接（音标、编号最容易中招） -->
+  <meta name="format-detection" content="telephone=no,email=no,address=no" />
+  <!-- iOS 添加到主屏后以独立 APP 形态启动 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="四级备考台" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <!-- 国产双核浏览器（360/QQ/搜狗）强制走 Webkit 内核，避免 IE 兼容模式排版错乱 -->
+  <meta name="renderer" content="webkit" />
+  <meta name="force-rendering" content="webkit" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <!-- 微信 / QQ 的 X5 内核：以应用模式呈现，去掉多余的浏览器装饰 -->
+  <meta name="x5-page-mode" content="app" />
+  <meta name="applicable-device" content="pc,mobile" />
+
+  <!-- ===================== PWA ===================== -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/images/dog.png" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+
+  <!-- ===================== 样式（顺序不可颠倒） =====================
+       theme      设计变量与通用组件（按钮/卡片/输入框）
+       layout     页面骨架（侧边栏 + 主区 + 首页）
+       animations 关键帧与特效
+       modules    各业务模块样式
+       mobile     移动端适配 / 触摸反馈 / 发音状态 / toast（必须最后加载）
+  -->
+  <link rel="stylesheet" href="css/theme.css" />
+  <link rel="stylesheet" href="css/layout.css" />
+  <link rel="stylesheet" href="css/animations.css" />
+  <link rel="stylesheet" href="css/modules.css" />
+  <link rel="stylesheet" href="css/mobile.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ========== 左侧导航（移动端自动变为顶部横向滑动条） ========== -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-emoji">🐾</span>
+        <span class="brand-text">软萌备考台</span>
+      </div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-module="home">🏠 首页</button>
+        <button class="nav-item" data-module="words-learn">📚 单词学习</button>
+        <button class="nav-item" data-module="words-review">🔁 单词复习</button>
+        <button class="nav-item" data-module="word-quiz">🏆 单词闯关</button>
+        <button class="nav-item" data-module="word-match">🧩 单词消消乐</button>
+        <button class="nav-item" data-module="listening">🎧 听力专项</button>
+        <button class="nav-item" data-module="reading">📖 分级阅读</button>
+        <button class="nav-item" data-module="essays">✍️ 作文素材</button>
+        <button class="nav-item" data-module="puppy">🐶 小狗养成</button>
+        <button class="nav-item" data-module="dashboard">📊 数据看板</button>
+        <button class="nav-item" data-module="sync">🔄 数据同步</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="food-chip" id="foodChip" title="狗粮数量">🦴 <span id="foodCount">0</span></div>
+        <button class="checkin-btn" id="checkinBtn">☀️ 今日打卡</button>
+        <div class="backup-row">
+          <button class="backup-btn" id="exportBtn" title="把学习进度下载成文件，存到 U 盘">💾 备份进度</button>
+          <button class="backup-btn" id="importBtn" title="从 U 盘里的进度文件恢复">📂 恢复进度</button>
+        </div>
+        <input type="file" id="importFile" accept="application/json,.json" hidden />
+      </div>
+    </aside>
+
+    <!-- ========== 主区域 ========== -->
+    <main class="main">
+      <header class="topbar">
+        <h1 class="topbar-title" id="topTitle">欢迎回来，小可爱～</h1>
+        <div class="topbar-sub" id="topSub">今天也要元气满满地备考哦</div>
+      </header>
+
+      <!-- 所有模块面板并列在此，同一时刻只有 .active 的那个显示 -->
+      <div class="module-stage" id="stage">
+        <!-- 首页 -->
+        <section class="module-panel active" id="mod-home">
+          <div class="home-hero cloud-card">
+            <div class="home-hero-dog" id="homeDog">🐶</div>
+            <h2>四级软萌备考工作台</h2>
+            <p>左侧选择模块开始学习吧～学单词、练听力、读文章、写作文，<br/>还有一只软萌金毛陪你一起成长 🐾</p>
+            <div class="home-stats" id="homeStats"></div>
+          </div>
+          <div class="home-grid" id="homeGrid"></div>
+        </section>
+
+        <!-- 单词学习 -->
+        <section class="module-panel" id="mod-words-learn">
+          <div class="module-head"><h2>📚 单词学习</h2><p class="module-desc">核心单词卡片 · 发音 · 趣味记忆 · 真题例句</p></div>
+          <div class="module-body" id="body-words-learn"></div>
+        </section>
+
+        <!-- 单词复习 -->
+        <section class="module-panel" id="mod-words-review">
+          <div class="module-head"><h2>🔁 单词复习</h2><p class="module-desc">听音默写 · 释义填词 · 真题挖空 · 艾宾浩斯推送</p></div>
+          <div class="module-body" id="body-words-review"></div>
+        </section>
+
+        <!-- 单词闯关 -->
+        <section class="module-panel" id="mod-word-quiz">
+          <div class="module-head"><h2>🏆 单词闯关</h2><p class="module-desc">随机出题 · 连击加分 · 小狗陪闯 · 积分同步看板</p></div>
+          <div class="module-body" id="body-word-quiz"></div>
+        </section>
+
+        <!-- 单词消消乐 -->
+        <section class="module-panel" id="mod-word-match">
+          <div class="module-head"><h2>🧩 单词消消乐</h2><p class="module-desc">左右连线配对 · 消除积分喂小狗成长</p></div>
+          <div class="module-body" id="body-word-match"></div>
+        </section>
+
+        <!-- 听力专项 -->
+        <section class="module-panel" id="mod-listening">
+          <div class="module-head"><h2>🎧 听力专项</h2><p class="module-desc">对话/新闻/篇章 · 倍速 · 逐句循环 · 点句翻译</p></div>
+          <div class="module-body" id="body-listening"></div>
+        </section>
+
+        <!-- 分级阅读 -->
+        <section class="module-panel" id="mod-reading">
+          <div class="module-head"><h2>📖 分级阅读</h2><p class="module-desc">整篇横排 · 点句出翻译 · 按话题筛选 · 真题级阅读题</p></div>
+          <div class="module-body" id="body-reading"></div>
+        </section>
+
+        <!-- 作文素材 -->
+        <section class="module-panel" id="mod-essays">
+          <div class="module-head"><h2>✍️ 作文素材库</h2><p class="module-desc">万能模板 · 高级句式 · 低分词替换 · 范文解析</p></div>
+          <div class="module-body" id="body-essays"></div>
+        </section>
+
+        <!-- 小狗养成 -->
+        <section class="module-panel" id="mod-puppy">
+          <div class="module-head"><h2>🐶 小狗养成</h2><p class="module-desc">软萌金毛 · 狗粮养成 · 成长闭环 · 繁育玩法</p></div>
+          <div class="module-body" id="body-puppy"></div>
+        </section>
+
+        <!-- 数据看板 -->
+        <section class="module-panel" id="mod-dashboard">
+          <div class="module-head"><h2>📊 学习数据看板</h2><p class="module-desc">任务清单 · 词汇进度 · 打卡日历 · 错题本 · 周统计</p></div>
+          <div class="module-body" id="body-dashboard"></div>
+        </section>
+
+        <!-- 数据同步 -->
+        <section class="module-panel" id="mod-sync">
+          <div class="module-head"><h2>🔄 数据同步</h2><p class="module-desc">手机 ↔ 电脑 进度互通 · 私密房间名 · 端到端加密</p></div>
+          <div class="module-body" id="body-sync"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===================== 脚本（顺序即依赖链，不可颠倒） ===================== -->
+
+  <!-- ① 基础设施：轻提示与全局异常兜底，必须最先加载，后续模块都会用到 -->
+  <script src="js/core/toast.js"></script>
+
+  <!-- ② 数据层：localStorage 读写、学习进度模型 -->
+  <script src="js/core/store.js"></script>
+
+  <!-- ③ 同步层：Supabase 云端多端同步（Gun 中继为可选备用模式，CDN 拉不到也不影响使用） -->
+  <script src="https://cdn.jsdelivr.net/npm/gun/gun.js" data-optional="1" onerror="console.warn('[Gun] CDN 未加载，已跳过可选的中继同步模式')"></script>
+  <script src="js/core/sync.js"></script>
+
+  <!-- ④ 音频引擎：自动播放解锁、单例播放、发音按钮状态 -->
+  <script src="js/core/audio.js"></script>
+
+  <!-- ⑤ 静态数据：词库与题库 -->
+  <script src="js/data/words.js"></script>
+  <script src="js/data/listening.js"></script>
+  <script src="js/data/listening_exam.js"></script>
+  <script src="js/data/reading.js"></script>
+  <script src="js/data/essays.js"></script>
+
+  <!-- ⑥ 业务模块：各自注册到 window.CET4Modules，彼此独立 -->
+  <script src="js/modules/words-learn.js"></script>
+  <script src="js/modules/words-review.js"></script>
+  <script src="js/modules/listening.js"></script>
+  <script src="js/modules/reading.js"></script>
+  <script src="js/modules/essays.js"></script>
+  <script src="js/modules/puppy.js"></script>
+  <script src="js/modules/puppy-buddy.js"></script>
+  <script src="js/modules/word-quiz.js"></script>
+  <script src="js/modules/word-match.js"></script>
+  <script src="js/modules/dashboard.js"></script>
+
+  <!-- ⑦ 入口：小狗立绘 + 路由启动 -->
+  <script src="js/core/dog.js"></script>
+  <script src="js/core/app.js"></script>
+</body>
+</html>
