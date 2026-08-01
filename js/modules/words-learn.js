@@ -131,6 +131,8 @@ window.CET4Modules['words-learn'] = {
     }
 
     function showCard(w) {
+      // 记录「当前正在看的单词」，重新打开模块时据此续学，而不是每次从头开始
+      Store.setLastLearnWord(w.id);
       view.innerHTML = cardHTML(w);
       updateProg();
       bindCard(view, w);
@@ -166,6 +168,10 @@ window.CET4Modules['words-learn'] = {
         if (!target) return;
         filter = 'all'; filterSel.value = 'all'; query = ''; search.value = '';
         listBtn.dataset.on = '0'; listBtn.textContent = '📋 列表';
+        // 让上/下一个按钮从「该词在（本轮未学）池中的位置」继续，衔接更顺
+        const p = pool();
+        const ti = p.findIndex(w => String(w.id) === String(target.id));
+        if (ti >= 0) idx = ti;
         showCard(target);   // 直接定位到该词，不受本轮筛选影响
       });
     }
@@ -176,6 +182,17 @@ window.CET4Modules['words-learn'] = {
       if (listBtn.dataset.on === '1') { listBtn.dataset.on = '0'; listBtn.textContent = '📋 列表'; render(); }
       else { listBtn.dataset.on = '1'; listBtn.textContent = '🃏 卡片'; renderList(); }
     };
+
+    // 恢复上次学习进度：重新打开模块时，直接定位到上次正在看的单词，
+    // 而不是永远从第一个开始。学习模式下该单词仍在「本轮未学」池中则精确命中；
+    // 若它已被标记为本轮已学（理论上不会，因 showCard 记录的是当前展示词），
+    // 则回退到池首，行为等价于原逻辑。
+    const lastWord = Store.getLastLearnWord();
+    if (lastWord != null) {
+      const p = pool();
+      const ri = p.findIndex(w => String(w.id) === String(lastWord));
+      if (ri >= 0) idx = ri;
+    }
 
     render();
   }

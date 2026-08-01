@@ -13,6 +13,8 @@ const Store = (() => {
     // 单词学习「本轮已学」集合：标记学过的卡片在本轮不再出现；
     // 当全部单词都学完时清空该集合，自动开启第二轮（已学单词再次出现）。
     roundLearned: {},
+    // 单词学习：上次正在查看的单词 id，用于「重新打开模块时定位到进度所在单词」
+    lastLearnWord: null,
     reviewLog: [],    // { ts, mode, correct, total }
     // 每个练习模式各自独立的「已复习单词」集合：三个模式进度互不影响
     // reviewedByMode[mode][id] = { correct:bool, ts:number }
@@ -89,6 +91,7 @@ const Store = (() => {
     if (typeof s.food !== 'number') s.food = 0;
     s.words = s.words || {};
     s.roundLearned = s.roundLearned || {};
+    if (s.lastLearnWord === undefined) s.lastLearnWord = null;
     return s;
   }
 
@@ -145,6 +148,10 @@ const Store = (() => {
   function getRoundLearnedCount() {
     return state.roundLearned ? Object.keys(state.roundLearned).length : 0;
   }
+
+  /* ---- 单词学习：记录 / 读取「上次正在看的单词」，实现重新打开即续学 ---- */
+  function setLastLearnWord(id) { state.lastLearnWord = id; save(); }
+  function getLastLearnWord() { return state.lastLearnWord != null ? state.lastLearnWord : null; }
 
   /* ---- 复习调度（艾宾浩斯） ---- */
   function scheduleWord(id, level = 0) {
@@ -346,6 +353,7 @@ const Store = (() => {
     exportState, importState,
     setWordStatus, getWordStatus,
     addRoundLearned, isRoundLearned, resetRound, getRoundLearnedCount,
+    setLastLearnWord, getLastLearnWord,
     scheduleWord, getDueWords, getDueWordsForMode, recordReview, markModeReviewed, logReview,
     addFood, spendFood, getFood,
     hasCheckedToday, doCheckin,

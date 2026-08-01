@@ -367,6 +367,7 @@
 
   /* ===================== 7. 单例播放控制 ===================== */
   var current = { utter: null, btn: null, watchdog: null, resumeTimer: null };
+  var speakSeq = 0;   // 每次发起朗读自增；用于丢弃被新朗读取代的「迟到 fire」，避免连按时旧音残留/串音
 
   /** 收集主文档 + 已知影子树里的所有媒体元素 */
   function collectMedia() {
@@ -398,7 +399,12 @@
     current.utter = null;
     current.btn = null;
     if (!SUPPORTED) return;
-    try { synth.cancel(); } catch (e) { if (!silent) logErr('取消朗读失败', e); }
+    // ⚠️ 关键修复：仅在确实「正在播 / 排队中」时才 cancel。
+    // 否则「空 cancel」会让 Chrome/Edge 的引擎进入静默态，紧接着的 speak()
+    // 会被静默丢弃——这正是「按一次没声音、按两次才有」顽疾的根因之一。
+    if (synth.speaking || synth.pending) {
+      try { synth.cancel(); } catch (e) { if (!silent) logErr('取消朗读失败', e); }
+    }
   }
 
   /** 对外的「全停」：朗读 + 原声一起停 */
@@ -484,6 +490,7 @@
     if (!unlocked) unlock('speak 调用兜底');
 
     // ——③ 单例：先停掉上一条朗读，再暂停正在播的真题原声——
+    var interrupting = SUPPORTED && (synth.speaking || synth.pending);
     stopSpeech(true);
     pauseAllMedia(null);
 
@@ -541,12 +548,22 @@
     current.utter = u;
     current.btn = btn;
 
-    try {
-      synth.speak(u);
-    } catch (e) {
-      logErr('synth.speak 抛异常', e);
-      handleFail(btn, 'speak-throw');
-      return false;
+    var mySeq = ++speakSeq;   // 本帧朗读的序号，用于丢弃被新朗读取代的迟到 fire
+    function fire() {
+      if (mySeq !== speakSeq) return;   // 已有更新的朗读发起，本帧作废，避免旧音串入
+      try {
+        synth.speak(u);
+      } catch (e) {
+        logErr('synth.speak 抛异常', e);
+        handleFail(btn, 'speak-throw');
+      }
+    }
+    if (interrupting) {
+      // Chrome / Edge 在 cancel() 之后同步调用 speak() 会静默丢弃新语音，
+      // 留约 60ms 让引擎先处理完「取消」事件，再发新语音——首按即出声，无需连按。
+      setTimeout(fire, 60);
+    } else {
+      fire();
     }
 
     // ——④ 看门狗：静默失败（既不 onstart 也不 onerror）时自动重试一次——
