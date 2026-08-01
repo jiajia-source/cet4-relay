@@ -12,7 +12,7 @@
  *   · 跨域资源（CDN）→ 完全交给浏览器，不做任何拦截。
  * ---------------------------------------------------------------------------
  */
-const CACHE = 'cet4-v9';
+const CACHE = 'cet4-v10';
 
 const SHELL = [
   './',
@@ -20,21 +20,21 @@ const SHELL = [
   'manifest.webmanifest',
 
   // 样式
-  'css/theme.css?v=9', 'css/layout.css?v=9', 'css/animations.css?v=9', 'css/modules.css?v=9', 'css/mobile.css?v=9',
+  'css/theme.css?v=10', 'css/layout.css?v=10', 'css/animations.css?v=10', 'css/modules.css?v=10', 'css/mobile.css?v=10',
 
   // 核心脚本
-  'js/core/toast.js?v=9', 'js/core/store.js?v=9', 'js/core/sync.js?v=9',
-  'js/core/audio.js?v=9', 'js/core/dog.js?v=9', 'js/core/app.js?v=9',
+  'js/core/toast.js?v=10', 'js/core/store.js?v=10', 'js/core/sync.js?v=10',
+  'js/core/audio.js?v=10', 'js/core/dog.js?v=10', 'js/core/app.js?v=10',
 
   // 静态数据
-  'js/data/words.js?v=9', 'js/data/listening.js?v=9', 'js/data/listening_exam.js?v=9',
-  'js/data/reading.js?v=9', 'js/data/essays.js?v=9',
+  'js/data/words.js?v=10', 'js/data/listening.js?v=10', 'js/data/listening_exam.js?v=10',
+  'js/data/reading.js?v=10', 'js/data/essays.js?v=10',
 
   // 业务模块
-  'js/modules/words-learn.js?v=9', 'js/modules/words-review.js?v=9', 'js/modules/listening.js?v=9',
-  'js/modules/reading.js?v=9', 'js/modules/essays.js?v=9', 'js/modules/puppy.js?v=9',
-  'js/modules/puppy-buddy.js?v=9', 'js/modules/word-quiz.js?v=9', 'js/modules/word-match.js?v=9',
-  'js/modules/dashboard.js?v=9',
+  'js/modules/words-learn.js?v=10', 'js/modules/words-review.js?v=10', 'js/modules/listening.js?v=10',
+  'js/modules/reading.js?v=10', 'js/modules/essays.js?v=10', 'js/modules/puppy.js?v=10',
+  'js/modules/puppy-buddy.js?v=10', 'js/modules/word-quiz.js?v=10', 'js/modules/word-match.js?v=10',
+  'js/modules/dashboard.js?v=10',
 
   // 静态素材
   'assets/images/dog.png', 'assets/icons/icon.svg', 'assets/icons/icon-maskable.svg'

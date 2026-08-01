@@ -41,6 +41,8 @@ const Store = (() => {
       lifeV2: true,
       // 上次状态结算时刻：页面关闭期间按真实经过时间补算饥饿 / 心情 / 精力
       lastTick: 0,
+      // 自动投喂开关（默认开启）：关闭后学习赚的狗粮存库存，由用户手动喂
+      autoFeed: true,
       study: { total: 0, words: 0, listening: 0, reading: 0, essays: 0 },
       dogs: {
         d1: { id: 'd1', name: '奶糖', gen: 1, sex: 'F', colorKey: 'gold', stage: 'baby', age: 0, alive: true,
@@ -87,6 +89,7 @@ const Store = (() => {
     const now = Date.now();
     const DAY = 24 * 60 * 60 * 1000;
     p.dogs = p.dogs || {};
+    if (p.autoFeed === undefined) p.autoFeed = true;   // 自动投喂默认开启（兼容旧档）
     if (!p.lifeV2) {
       p.lifeV2 = true;
       p.lastTick = now;

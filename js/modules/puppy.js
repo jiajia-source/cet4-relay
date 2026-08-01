@@ -340,6 +340,7 @@ window.CET4Modules = window.CET4Modules || {};
   let autoFeeding = false;
   function autoFeed(gained, silent) {
     if (autoFeeding) return 0;
+    if (S.autoFeed === false) return 0;            // 用户关闭自动投喂：狗粮留库存，手动喂
     autoFeeding = true;
     try {
       refreshS();
@@ -527,7 +528,7 @@ window.CET4Modules = window.CET4Modules || {};
         <span class="chip">🌟 后代天赋上限 +${tb}</span>
       </div>
       <div class="hint">学习越久，增益越强：① 陪伴你的时间更长；② 外出更易遇优质伙伴 / 伴侣；③ 繁育时幼犬天赋上限更高。<br>
-      <b>真实联动</b>：在单词 / 听力 / 阅读 / 作文模块完成学习会自动累加，赚到的狗粮也会由系统直接喂给它。</div>`;
+      <b>真实联动</b>：在单词 / 听力 / 阅读 / 作文模块完成学习会自动累加，赚到的狗粮默认由系统直接喂给它（可在「养成」页关闭自动投喂、改为手动喂）。</div>`;
   }
   function renderSocial() {
     const p = $('#panel'); if (!p) return; p.dataset.tab = 'social';
@@ -655,14 +656,49 @@ window.CET4Modules = window.CET4Modules || {};
       预计一生 <b>${L.ml} 天</b>（基础 ${BASE_LIFE} 天 ＋ 学习延寿 ${lifeBonus()} 天），学得越多陪你越久。</div>
     </div>`;
   }
-  const TAB_RENDER = { raise: () => {
+  const HELP_HTML = `
+    <div class="hc-title">🐶 小狗养成怎么玩</div>
+    <ul class="hc-list">
+      <li>🕒 <b>成长按真实时间</b>：1 个真实天 = 1 岁，页面关着也在长，不会瞬间老死。</li>
+      <li>⏳ <b>一生约 32~57 天</b>（基础 32 天 ＋ 学习越多延寿越多），专注背单词不理它也能自然走完。</li>
+      <li>🍚 <b>狗粮</b>：背单词 / 做题赚到后，开启自动投喂则系统直接喂；关闭则存库存，可随时手动喂。</li>
+      <li>📊 <b>成长进度条</b>：显示当前阶段与距下一阶段的时间。</li>
+      <li>🔄 <b>世代循环</b>：老去离世后，有后代则继承血脉，无后代可领养新小狗继续陪伴。</li>
+      <li>💡 <b>旧档迁移</b>：首次打开会把测试期跑飞的狗重置为新生（名字 / 世代 / 婚姻 / 天赋 / 后代都保留）。</li>
+    </ul>`;
+  function renderRaise() {
     const p = $('#panel'); if (!p) return; p.dataset.tab = 'raise';
+    const af = S.autoFeed !== false;
     p.innerHTML = `<h3>🐾 养成</h3>
       ${growthHTML()}
-      <div class="hint">🍚 <b>自动投喂已开启</b>：背单词 / 做题赚到的狗粮，系统会直接喂给它，你专心学习就行。<br>
-      手动互动：喂食 / 抚摸 / 玩耍 / 睡觉，都会加心情和亲密度。<br>
+      <div class="raise-ctrl">
+        <div class="af-row">
+          <span class="af-label">🍚 自动投喂</span>
+          <button id="afSwitch" class="af-sw ${af ? 'on' : 'off'}">${af ? '开启' : '关闭'}</button>
+        </div>
+        ${af
+          ? `<div class="hint">背单词 / 做题赚到的狗粮，系统会<b>直接喂给它</b>，你专心学习就行。</div>`
+          : `<div class="hint">自动投喂已关闭，赚到的狗粮会存进库存。想喂时点下方「🍚 手动喂食」或养成区的🦴喂食按钮。</div>
+             <button id="manualFeedBtn" class="af-feed">🍚 手动喂食（库存 ${Store.getFood()}）</button>`}
+        <button id="helpBtn" class="af-help">❓ 使用说明</button>
+        <div id="helpCard" class="help-card" style="display:none">${HELP_HTML}</div>
+      </div>
+      <div class="hint">手动互动：喂食 / 抚摸 / 玩耍 / 睡觉，都会加心情和亲密度。<br>
       阶段解锁：<b>少年</b>外出交友 · <b>成年</b>恋爱结婚 · <b>老年</b>自然老去。</div>`;
-  }, study: renderStudy, social: renderSocial, family: renderFamily, shelf: renderShelf };
+    const sw = $('#afSwitch'); if (sw) sw.onclick = toggleAutoFeed;
+    const mf = $('#manualFeedBtn');
+    if (mf) mf.onclick = () => { doFeed().then(() => { const pp = $('#panel'); if (pp && pp.dataset.tab === 'raise') renderRaise(); }); };
+    const hb = $('#helpBtn');
+    if (hb) hb.onclick = () => { const c = $('#helpCard'); if (c) c.style.display = c.style.display === 'none' ? 'block' : 'none'; };
+  }
+  function toggleAutoFeed() {
+    if (typeof S.autoFeed !== 'boolean') S.autoFeed = true;   // 兜底：旧档视为开启
+    S.autoFeed = !S.autoFeed;                                 // 翻转开关
+    save();
+    renderRaise();
+    toast(S.autoFeed ? '🍚 自动投喂已开启' : '🍚 自动投喂已关闭，狗粮将存库存');
+  }
+  const TAB_RENDER = { raise: renderRaise, study: renderStudy, social: renderSocial, family: renderFamily, shelf: renderShelf };
   function renderTab(t) { (TAB_RENDER[t] || renderStudy)(); }
   // 成长进度条每分钟自刷新（只在养成页可见时）
   function refreshGrowth() {
@@ -824,6 +860,19 @@ window.CET4Modules = window.CET4Modules || {};
     .grow-next b{color:var(--pink);}
     .grow-tip{margin-top:6px; font-size:11px; color:var(--ink-soft); line-height:1.55;}
     .grow-tip b{color:var(--ink);}
+    .raise-ctrl{background:#fff; border:1px solid #ffe3ec; border-radius:14px; padding:11px 13px; margin-top:10px; box-shadow:0 2px 8px rgba(0,0,0,.04);}
+    .af-row{display:flex; align-items:center; justify-content:space-between;}
+    .af-label{font-size:13px; font-weight:600; color:var(--ink);}
+    .af-sw{border:none; border-radius:20px; padding:5px 16px; font-size:12px; font-weight:700; cursor:pointer; transition:.15s;}
+    .af-sw.on{background:var(--pink); color:#fff;}
+    .af-sw.off{background:#e7dde2; color:var(--ink-soft);}
+    .af-feed{display:block; width:100%; margin-top:9px; border:none; border-radius:12px; padding:10px; font-size:13px; font-weight:700; background:var(--gold-deep); color:#6b5563; cursor:pointer;}
+    .af-feed:hover{filter:brightness(1.04);}
+    .af-help{margin-top:9px; border:none; background:transparent; color:var(--ink-soft); font-size:12px; cursor:pointer; text-decoration:underline; padding:2px 0;}
+    .help-card{margin-top:8px; background:#fff7f0; border:1px solid #ffe3ec; border-radius:12px; padding:11px 13px;}
+    .help-card .hc-title{font-size:13px; font-weight:700; color:var(--ink); margin-bottom:6px;}
+    .help-card .hc-list{margin:0; padding-left:18px; font-size:11.5px; color:var(--ink-soft); line-height:1.7;}
+    .help-card .hc-list b{color:var(--ink);}
     .fam-acts{margin-top:14px;}
     .fam-acts .hot{font-size:14px; padding:10px 18px;}
     .companion{position:absolute; bottom:38px; opacity:0; transition:.45s; pointer-events:none; z-index:6; text-align:center;}
