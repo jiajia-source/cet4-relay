@@ -297,3 +297,14 @@ img, video, audio, canvas, svg { max-width: 100%; }
   .anim-float, .anim-pulse { animation: none !important; }
   * { transition-duration: .01ms !important; }
 }
+
+/* ---------- 版本徽标：让用户一眼确认当前跑的是哪一版 ---------- */
+.ver-badge{
+  margin-top:8px;
+  text-align:center;
+  font-size:11px;
+  letter-spacing:.5px;
+  color:var(--muted,#9b8ea8);
+  opacity:.75;
+  user-select:text;
+}

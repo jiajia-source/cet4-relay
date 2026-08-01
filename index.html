@@ -43,11 +43,11 @@
        modules    各业务模块样式
        mobile     移动端适配 / 触摸反馈 / 发音状态 / toast（必须最后加载）
   -->
-  <link rel="stylesheet" href="css/theme.css" />
-  <link rel="stylesheet" href="css/layout.css" />
-  <link rel="stylesheet" href="css/animations.css" />
-  <link rel="stylesheet" href="css/modules.css" />
-  <link rel="stylesheet" href="css/mobile.css" />
+  <link rel="stylesheet" href="css/theme.css?v=8" />
+  <link rel="stylesheet" href="css/layout.css?v=8" />
+  <link rel="stylesheet" href="css/animations.css?v=8" />
+  <link rel="stylesheet" href="css/modules.css?v=8" />
+  <link rel="stylesheet" href="css/mobile.css?v=8" />
 </head>
 <body>
   <div class="app-shell">
@@ -77,6 +77,7 @@
           <button class="backup-btn" id="exportBtn" title="把学习进度下载成文件，存到 U 盘">💾 备份进度</button>
           <button class="backup-btn" id="importBtn" title="从 U 盘里的进度文件恢复">📂 恢复进度</button>
         </div>
+        <div class="ver-badge" id="verBadge" title="当前运行版本，用于确认是否已更新到最新版">v8 · 08-01</div>
         <input type="file" id="importFile" accept="application/json,.json" hidden />
       </div>
     </aside>
@@ -167,39 +168,39 @@
   <!-- ===================== 脚本（顺序即依赖链，不可颠倒） ===================== -->
 
   <!-- ① 基础设施：轻提示与全局异常兜底，必须最先加载，后续模块都会用到 -->
-  <script src="js/core/toast.js"></script>
+  <script src="js/core/toast.js?v=8"></script>
 
   <!-- ② 数据层：localStorage 读写、学习进度模型 -->
-  <script src="js/core/store.js"></script>
+  <script src="js/core/store.js?v=8"></script>
 
   <!-- ③ 同步层：Supabase 云端多端同步（Gun 中继为可选备用模式，CDN 拉不到也不影响使用） -->
   <script src="https://cdn.jsdelivr.net/npm/gun/gun.js" data-optional="1" onerror="console.warn('[Gun] CDN 未加载，已跳过可选的中继同步模式')"></script>
-  <script src="js/core/sync.js"></script>
+  <script src="js/core/sync.js?v=8"></script>
 
   <!-- ④ 音频引擎：自动播放解锁、单例播放、发音按钮状态 -->
-  <script src="js/core/audio.js"></script>
+  <script src="js/core/audio.js?v=8"></script>
 
   <!-- ⑤ 静态数据：词库与题库 -->
-  <script src="js/data/words.js"></script>
-  <script src="js/data/listening.js"></script>
-  <script src="js/data/listening_exam.js"></script>
-  <script src="js/data/reading.js"></script>
-  <script src="js/data/essays.js"></script>
+  <script src="js/data/words.js?v=8"></script>
+  <script src="js/data/listening.js?v=8"></script>
+  <script src="js/data/listening_exam.js?v=8"></script>
+  <script src="js/data/reading.js?v=8"></script>
+  <script src="js/data/essays.js?v=8"></script>
 
   <!-- ⑥ 业务模块：各自注册到 window.CET4Modules，彼此独立 -->
-  <script src="js/modules/words-learn.js"></script>
-  <script src="js/modules/words-review.js"></script>
-  <script src="js/modules/listening.js"></script>
-  <script src="js/modules/reading.js"></script>
-  <script src="js/modules/essays.js"></script>
-  <script src="js/modules/puppy.js"></script>
-  <script src="js/modules/puppy-buddy.js"></script>
-  <script src="js/modules/word-quiz.js"></script>
-  <script src="js/modules/word-match.js"></script>
-  <script src="js/modules/dashboard.js"></script>
+  <script src="js/modules/words-learn.js?v=8"></script>
+  <script src="js/modules/words-review.js?v=8"></script>
+  <script src="js/modules/listening.js?v=8"></script>
+  <script src="js/modules/reading.js?v=8"></script>
+  <script src="js/modules/essays.js?v=8"></script>
+  <script src="js/modules/puppy.js?v=8"></script>
+  <script src="js/modules/puppy-buddy.js?v=8"></script>
+  <script src="js/modules/word-quiz.js?v=8"></script>
+  <script src="js/modules/word-match.js?v=8"></script>
+  <script src="js/modules/dashboard.js?v=8"></script>
 
   <!-- ⑦ 入口：小狗立绘 + 路由启动 -->
-  <script src="js/core/dog.js"></script>
-  <script src="js/core/app.js"></script>
+  <script src="js/core/dog.js?v=8"></script>
+  <script src="js/core/app.js?v=8"></script>
 </body>
 </html>
