@@ -41,10 +41,26 @@ window.CET4Modules['words-learn'] = {
       });
     }
 
+    // 学习模式（未选状态筛选、未搜索）下，跳过「本轮已学」的卡片，避免重复出现。
+    // 一旦显式筛选状态或搜索，则进入「复习模式」，展示全部匹配项。
+    function pool() {
+      const list = filtered();
+      if (filter === 'all' && !query) {
+        return list.filter(w => !Store.isRoundLearned(w.id));
+      }
+      return list;
+    }
+
     function updateProg() {
       const total = W.length;
       const learned = W.filter(w => Store.getWordStatus(w.id)).length;
-      prog.textContent = `已学 ${learned} / ${total}`;
+      let txt = `已学 ${learned} / ${total}`;
+      // 学习模式下补充「本轮剩余」提示
+      if (filter === 'all' && !query) {
+        const left = pool().length;
+        txt += left > 0 ? ` ｜ 本轮剩余 ${left}` : ` ｜ 本轮已学完 🎉`;
+      }
+      prog.textContent = txt;
     }
 
     function cardHTML(w) {
@@ -97,28 +113,42 @@ window.CET4Modules['words-learn'] = {
         const prev = Store.getWordStatus(w.id);
         Store.setWordStatus(w.id, mark);
         Store.scheduleWord(w.id, 0);            // 进入复习清单
+        Store.addRoundLearned(w.id);            // 标记为本轮已学，后续导航不再出现
         if (!prev) Store.bumpStat('learned');
         if (window.PuppyStudy) window.PuppyStudy.gain('words', 1);
         const labels = { mastered: '已掌握', fuzzy: '模糊不熟', unknown: '完全陌生' };
-        host.querySelector('#wlTip').textContent =
-          '已标记「' + labels[mark] + '」并加入复习清单 🐾';
+        if (typeof window.UI !== 'undefined')
+          window.UI.toast('已标记「' + labels[mark] + '」并加入复习清单 🐾', 'success', 1500);
         if (typeof window.floatHearts === 'function') window.floatHearts(5);
         updateProg();
+        // 标记后自动跳到下一张未学单词；若本轮全部学完则开启第二轮
+        render();
       });
 
-      host.querySelector('#wlPrev').onclick = () => { const l = filtered().length; idx = (idx - 1 + l) % l; render(); };
-      host.querySelector('#wlNext').onclick = () => { const l = filtered().length; idx = (idx + 1) % l; render(); };
-      host.querySelector('#wlRand').onclick = () => { idx = Math.floor(Math.random() * filtered().length); render(); };
+      host.querySelector('#wlPrev').onclick = () => { const l = pool().length; idx = (idx - 1 + l) % l; render(); };
+      host.querySelector('#wlNext').onclick = () => { const l = pool().length; idx = (idx + 1) % l; render(); };
+      host.querySelector('#wlRand').onclick = () => { idx = Math.floor(Math.random() * pool().length); render(); };
     }
 
-    function render() {
-      const list = filtered();
-      if (!list.length) { view.innerHTML = '<div class="placeholder">没有匹配的单词～换个筛选条件试试 🐾</div>'; updateProg(); return; }
-      idx = Math.max(0, Math.min(idx, list.length - 1));
-      const w = list[idx];
+    function showCard(w) {
       view.innerHTML = cardHTML(w);
       updateProg();
       bindCard(view, w);
+    }
+
+    function render() {
+      let list = pool();
+      // 学习模式下若已全部学完（本轮无剩余），清空本轮记录，自动开启下一轮
+      if (!list.length && filter === 'all' && !query) {
+        Store.resetRound();
+        list = pool();
+        if (typeof window.UI !== 'undefined')
+          window.UI.toast('🎉 本轮单词全部学完，第二轮开始！已学单词会再次出现～', 'success', 2600);
+      }
+      if (!list.length) { view.innerHTML = '<div class="placeholder">没有匹配的单词～换个筛选条件试试 🐾</div>'; updateProg(); return; }
+      idx = Math.max(0, Math.min(idx, list.length - 1));
+      const w = list[idx];
+      showCard(w);
     }
 
     function renderList() {
@@ -132,10 +162,11 @@ window.CET4Modules['words-learn'] = {
       }).join('') + '</div>';
       updateProg();
       view.querySelectorAll('.wl-chip').forEach(ch => ch.onclick = () => {
+        const target = W.find(x => String(x.id) === String(ch.dataset.word));
+        if (!target) return;
         filter = 'all'; filterSel.value = 'all'; query = ''; search.value = '';
-        idx = filtered().findIndex(x => x.id === ch.dataset.word);
         listBtn.dataset.on = '0'; listBtn.textContent = '📋 列表';
-        render();
+        showCard(target);   // 直接定位到该词，不受本轮筛选影响
       });
     }
 
