@@ -37,10 +37,14 @@ const Store = (() => {
     puppy: {
       gen: 1,
       currentId: 'd1',
-      speed: 'pause',                 // pause | slow | mid | fast（默认暂停老化，手动推进）
+      // 成长节奏 v2：年龄完全由真实时间推导（1 真实天 = 1 岁），不再有暂停 / 倍速 / 快进
+      lifeV2: true,
+      // 上次状态结算时刻：页面关闭期间按真实经过时间补算饥饿 / 心情 / 精力
+      lastTick: 0,
       study: { total: 0, words: 0, listening: 0, reading: 0, essays: 0 },
       dogs: {
         d1: { id: 'd1', name: '奶糖', gen: 1, sex: 'F', colorKey: 'gold', stage: 'baby', age: 0, alive: true,
+              bornAt: 0,
               hunger: 80, mood: 90, energy: 75, intimacy: 50, friends: [], partnerId: null, spouseId: null,
               married: false, affection: 0, offspring: [], talent: 50, parentId: null }
       },
@@ -73,6 +77,39 @@ const Store = (() => {
 
   let state = defaults();
 
+  /* 成长节奏 v2 迁移：
+   * 旧版小狗年龄靠定时器「每几秒 +1 天」推进，还带暂停/倍速/快进，一小时就能从幼年跑到老死。
+   * 新版改为「出生时间戳 + 真实时间」推导年龄（1 真实天 = 1 岁），整段一生至少一个月。
+   * 迁移策略：为每只狗补 bornAt；主角狗在测试期跑飞的年龄归零重新计时，
+   * 名字 / 世代 / 天赋 / 婚姻 / 后代等身份数据一律保留。 */
+  function migratePuppyLife(p) {
+    if (!p || typeof p !== 'object') return;
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    p.dogs = p.dogs || {};
+    if (!p.lifeV2) {
+      p.lifeV2 = true;
+      p.lastTick = now;
+      delete p.speed;                       // 移除旧的时间倍速档位
+      Object.keys(p.dogs).forEach(id => {
+        const d = p.dogs[id];
+        if (!d) return;
+        if (id === p.currentId) {           // 主角狗：重新出生，正常节奏再走一遍
+          d.bornAt = now; d.age = 0; d.stage = 'baby'; d.alive = true;
+        } else {                            // 其它狗：按已有年龄反推出生时刻
+          d.bornAt = now - (d.age || 0) * DAY;
+        }
+      });
+      return;
+    }
+    if (!p.lastTick) p.lastTick = now;
+    if (p.speed !== undefined) delete p.speed;
+    Object.keys(p.dogs).forEach(id => {
+      const d = p.dogs[id];
+      if (d && !d.bornAt) d.bornAt = now - (d.age || 0) * DAY;
+    });
+  }
+
   // 守卫：补齐所有子对象字段，兼容任意旧存档 / 外部导入的不完整进度
   function guard(s) {
     s.reviewedByMode = s.reviewedByMode || {};
@@ -88,6 +125,7 @@ const Store = (() => {
     s.checkin = s.checkin || { dates: {}, streak: 0, lastDate: null };
     s.dog = s.dog || defaults().dog;
     s.puppy = s.puppy || defaults().puppy;
+    migratePuppyLife(s.puppy);
     if (typeof s.food !== 'number') s.food = 0;
     s.words = s.words || {};
     s.roundLearned = s.roundLearned || {};
@@ -208,7 +246,15 @@ const Store = (() => {
   }
 
   /* ---- 狗粮 ---- */
-  function addFood(n) { state.food += n; save(); }
+  // 学习赚到狗粮后自动投喂给小狗（由 puppy 模块注册 window.PuppyAuto.autoFeed）。
+  // 只在小狗真的饿了时才消耗，吃饱后新赚的狗粮照常入账，不会被白吃掉。
+  function addFood(n) {
+    state.food += n;
+    save();
+    try {
+      if (window.PuppyAuto && typeof window.PuppyAuto.autoFeed === 'function') window.PuppyAuto.autoFeed(n);
+    } catch (e) { console.warn('[Store] 自动投喂失败', e); }
+  }
   function spendFood(n) {
     if (state.food < n) return false;
     state.food -= n; save(); return true;

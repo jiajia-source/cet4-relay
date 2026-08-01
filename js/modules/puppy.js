@@ -41,7 +41,7 @@ window.CET4Modules = window.CET4Modules || {};
   function makeDog(o) {
     return Object.assign({
       id: '', name: '小狗', gen: 1, sex: 'F', colorKey: 'gold',
-      stage: 'baby', age: 0, alive: true,
+      stage: 'baby', age: 0, alive: true, bornAt: Date.now(),
       hunger: 80, mood: 90, energy: 75, intimacy: 50,
       friends: [], partnerId: null, spouseId: null, married: false,
       affection: 0, offspring: [], talent: 50, parentId: null
@@ -63,16 +63,43 @@ window.CET4Modules = window.CET4Modules || {};
   const me = () => S.dogs[S.currentId];
   const npc = id => S.npcs[id];
 
+  /* ============ 成长节奏（真实时间驱动） ============
+   * 1 岁 = 1 个真实自然日，年龄由「出生时间戳 → 现在」推导，页面关不关都照常走。
+   * 基础寿命 32 天，学习越多越长寿（+25 上限），所以完整一生 32~57 天，一个月起步。 */
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const BASE_LIFE = 32;
+  const STAGE_BOUND = [0, 0.15, 0.40, 0.80, 1];   // 宝宝 / 少年 / 成年 / 老年 的分界比例
+
   /* ============ 增益计算 ============ */
   function lifeBonus()    { return Math.min(25, Math.floor(S.study.total / 4)); }
   function encounterBonus(){ return Math.min(0.6, S.study.total / 120); }
   function talentBonus()  { return Math.min(45, Math.floor(S.study.total / 3)); }
-  function maxLife()      { return 28 + lifeBonus(); }
+  function maxLife()      { return BASE_LIFE + lifeBonus(); }
   function stageOf(age, ml) {
-    if (age < ml * 0.15) return 'baby';
-    if (age < ml * 0.40) return 'teen';
-    if (age < ml * 0.80) return 'adult';
+    if (age < ml * STAGE_BOUND[1]) return 'baby';
+    if (age < ml * STAGE_BOUND[2]) return 'teen';
+    if (age < ml * STAGE_BOUND[3]) return 'adult';
     return 'elder';
+  }
+  // 精确年龄（带小数的天），用于成长进度条
+  function ageFloatOf(d) {
+    if (!d) return 0;
+    if (!d.bornAt) d.bornAt = Date.now() - (d.age || 0) * DAY_MS;
+    return Math.max(0, (Date.now() - d.bornAt) / DAY_MS);
+  }
+  function fmtDur(days) {
+    if (days >= 1) {
+      const d = Math.floor(days), h = Math.floor((days - d) * 24);
+      return h ? d + ' 天 ' + h + ' 小时' : d + ' 天';
+    }
+    const h = Math.floor(days * 24), mi = Math.floor((days * 24 - h) * 60);
+    return h ? h + ' 小时 ' + mi + ' 分' : Math.max(1, mi) + ' 分钟';
+  }
+  function lifeInfo() {
+    const m = me(), ml = maxLife(), af = ageFloatOf(m);
+    const idx = Math.max(0, STAGE_ORDER.indexOf(m.stage));
+    const nextAt = idx < 3 ? STAGE_BOUND[idx + 1] * ml : ml;
+    return { m, ml, af, idx, nextAt, pct: Math.min(100, af / ml * 100), remain: Math.max(0, nextAt - af) };
   }
 
   /* ============ 基础动画 ============ */
@@ -272,17 +299,78 @@ window.CET4Modules = window.CET4Modules || {};
   }
 
   /* ============ 时间 / 年龄 / 阶段 / 死亡 ============ */
-  function ageTick() {
-    if (busy || locked) return;
-    const m = me(); if (!m.alive) return;
-    m.age += 1;
-    m.hunger = Math.max(0, m.hunger - 1); m.energy = Math.max(0, m.energy - 1);
-    if (m.hunger < 40) m.mood = Math.max(0, m.mood - 1);
-    const ml = maxLife(); const ns = stageOf(m.age, ml);
-    if (ns !== m.stage) { m.stage = ns; onStageChange(ns); }
-    if (m.age >= ml) { onDeath(m); return; }
-    renderBars(); renderTop(); save();
+  /* 按真实时间同步年龄 / 阶段 / 自然离世（取代旧的「每几秒 +1 天」定时器） */
+  function syncAge() {
+    refreshS();
+    const m = me(); if (!m || !m.alive) return false;
+    const ml = maxLife();
+    const days = Math.floor(ageFloatOf(m));
+    const grew = days !== m.age;
+    m.age = days;
+    const ns = stageOf(days, ml);
+    const staged = ns !== m.stage;
+    if (staged) m.stage = ns;
+    if (days >= ml) { save(); onDeath(m); return true; }
+    if (staged) onStageChange(ns);
+    if (grew || staged) save();
+    return grew || staged;
   }
+
+  /* 饥饿 / 心情 / 精力：按真实经过时间自然衰减（页面关着也会算，但最多补 48 小时） */
+  const DECAY_PER_HOUR = { hunger: 4, mood: 2.5, energy: 3 };
+  const cap100 = v => Math.max(0, Math.min(100, v));
+  function decayByTime() {
+    refreshS();
+    const now = Date.now();
+    if (!S.lastTick) { S.lastTick = now; return false; }
+    const hours = (now - S.lastTick) / 3600000;
+    if (hours < 1 / 120) return false;              // 不足 30 秒不结算，省写盘
+    S.lastTick = now;
+    const m = me(); if (!m || !m.alive) { save(); return false; }
+    const h = Math.min(hours, 48);
+    m.hunger = cap100(m.hunger - DECAY_PER_HOUR.hunger * h);
+    m.mood   = cap100(m.mood   - DECAY_PER_HOUR.mood   * h - (m.hunger < 30 ? 1.5 * h : 0));
+    m.energy = cap100(m.energy - DECAY_PER_HOUR.energy * h);
+    save();
+    return true;
+  }
+
+  /* ============ 自动投喂：学完赚到的狗粮由系统直接喂给小狗 ============ */
+  const FEED_UNIT = 5, FEED_HUNGER = 15, FEED_MOOD = 4;
+  let autoFeeding = false;
+  function autoFeed(gained, silent) {
+    if (autoFeeding) return 0;
+    autoFeeding = true;
+    try {
+      refreshS();
+      const m = me();
+      if (!m || !m.alive) return 0;
+      if (m.hunger >= 90) return 0;                       // 已经吃饱，新赚的狗粮照常入账
+      const need = Math.ceil((100 - m.hunger) / FEED_HUNGER);
+      const afford = Math.floor(Store.getFood() / FEED_UNIT);
+      const byGain = Math.max(1, Math.ceil((gained || 0) / FEED_UNIT));
+      const portions = Math.min(need, afford, byGain);
+      if (portions <= 0) return 0;
+      if (!Store.spendFood(portions * FEED_UNIT)) return 0;
+      m.hunger   = cap100(m.hunger + portions * FEED_HUNGER);
+      m.mood     = cap100(m.mood + portions * FEED_MOOD);
+      m.intimacy = cap100(m.intimacy + 1);
+      Store.save();
+      if (window.updateChrome) window.updateChrome();
+      if (root) { renderBars(); }
+      if (!silent && window.UI && UI.toast) {
+        UI.toast('🍚 系统已自动喂 ' + m.name + ' ' + portions + ' 份狗粮（饥饿 ' + Math.round(m.hunger) + '）', 'ok');
+      }
+      return portions;
+    } catch (e) { console.warn('[Puppy] 自动投喂失败', e); return 0; }
+    finally { autoFeeding = false; }
+  }
+  // 供 Store.addFood 调用：不依赖养成页是否打开，学习即投喂。
+  // 投喂前先按真实时间把状态与年龄结算到此刻，保证数值连续。
+  window.PuppyAuto = {
+    autoFeed: n => { try { decayByTime(); syncAge(); } catch (e) {} return autoFeed(n, false); },
+    syncAge, decayByTime
+  };
   function onStageChange(ns) {
     applyStagePose(); renderTop(); renderActions();
     if (ns === 'teen') { toast('🎉 ' + me().name + ' 长大成少年，解锁『外出交友』！'); say('我长大啦，可以交朋友咯'); }
@@ -305,23 +393,6 @@ window.CET4Modules = window.CET4Modules || {};
     openModal('🌟 ' + m.name + ' 安详离世', body, btns);
   }
   function afterSwitch() { applyStagePose(); renderTop(); renderBars(); renderActions(); renderSocial(); renderFamily(); save(); }
-
-  function jumpStage(target) {
-    if (busy || !me().alive) return;
-    const m = me(); const ml = maxLife(); let a;
-    if (target === 'baby') a = 0;
-    else if (target === 'teen') a = Math.round(ml * 0.22);
-    else if (target === 'adult' || target === 'married') a = Math.round(ml * 0.45);
-    else if (target === 'elder') a = Math.round(ml * 0.88);
-    else a = 0;
-    m.age = a; m.stage = stageOf(a, ml);
-    if (target === 'married') { const n = makeNpc(false); n.name = '阿黄'; S.npcs[n.id] = n; m.spouseId = n.id; m.partnerId = n.id; m.affection = 100; m.married = true; }
-    onStageChange(m.stage);
-    renderBars(); renderTop(); renderSocial(); renderFamily(); save();
-    const extra = target === 'married' ? '（已结婚，可直接点「🐾 孕育」生小狗）' : '';
-    toast('🧪 已切换到「' + STAGE_NAMES[m.stage] + '」' + extra);
-    if (target === 'adult' || target === 'married') say('成年咯，来邂逅爱情 / 繁育后代吧～');
-  }
 
   /* ============ 主界面露面：伴侣 + 幼崽 ============ */
   function renderScene() {
@@ -391,7 +462,7 @@ window.CET4Modules = window.CET4Modules || {};
     const m = me();
     const dn = $('#dogName'); if (dn) dn.textContent = m.name;
     const gb = $('#genBadge'); if (gb) gb.textContent = '第 ' + m.gen + ' 代';
-    const sl = $('#subLine'); if (sl) sl.textContent = '汤姆猫风格 · 世代循环 · ' + STAGE_NAMES[m.stage] + '期 · 寿命 ' + m.age + '/' + maxLife() + ' 天';
+    const sl = $('#subLine'); if (sl) sl.textContent = '世代循环 · ' + STAGE_NAMES[m.stage] + '期 · 已陪伴 ' + m.age + '/' + maxLife() + ' 天';
     const pills = $('#stagePills'); if (pills) {
       pills.innerHTML = '';
       const curIdx = STAGE_ORDER.indexOf(m.stage);
@@ -412,12 +483,13 @@ window.CET4Modules = window.CET4Modules || {};
   }
   function renderBars() {
     const m = me(); const ml = maxLife(); let h = '';
-    h += barRow('饥饿', m.hunger, '#ffb3c6');
-    h += barRow('心情', m.mood, '#ffd166');
-    h += barRow('精力', m.energy, '#8ecae6');
-    h += barRow('寿命', Math.min(100, Math.round(m.age / ml * 100)), '#b08bd6', `<span class="mini">${m.age}/${ml}天</span>`);
-    if (m.stage !== 'baby') h += barRow('好感', m.affection, '#ff8fab', m.married ? '<span class="mini">已婚💍</span>' : '');
-    h += barRow('天赋', m.talent, '#6dd6c0');
+    h += barRow('饥饿', Math.round(m.hunger), '#ffb3c6');
+    h += barRow('心情', Math.round(m.mood), '#ffd166');
+    h += barRow('精力', Math.round(m.energy), '#8ecae6');
+    h += barRow('成长', Math.min(100, Math.round(ageFloatOf(m) / ml * 100)), '#b08bd6',
+      `<span class="mini">${STAGE_NAMES[m.stage]}期 · ${m.age}/${ml}天</span>`);
+    if (m.stage !== 'baby') h += barRow('好感', Math.round(m.affection), '#ff8fab', m.married ? '<span class="mini">已婚💍</span>' : '');
+    h += barRow('天赋', Math.round(m.talent), '#6dd6c0');
     const bars = $('#bars'); if (bars) bars.innerHTML = h;
   }
   function renderActions() {
@@ -440,25 +512,22 @@ window.CET4Modules = window.CET4Modules || {};
   function renderStudy() {
     const p = $('#panel'); if (!p) return; p.dataset.tab = 'study';
     const lb = lifeBonus(), eb = Math.round(encounterBonus() * 100), tb = talentBonus();
+    const st = S.study || {};
     p.innerHTML = `<h3>📚 学习中心 <span class="mini">（与备考系统打通的增益）</span></h3>
-      <div class="studyBtns">
-        <button data-s="words">📝 背单词 +3</button>
-        <button data-s="listening">🎧 练听力 +3</button>
-        <button data-s="reading">📖 做阅读 +3</button>
-        <button data-s="essays">✍️ 写作 +3</button>
-      </div>
-      <div class="prow"><span class="name">累计学习量</span><span class="mini">${S.study.total}</span></div>
+      <div class="prow"><span class="name">📝 背单词</span><span class="mini">${st.words || 0}</span></div>
+      <div class="prow"><span class="name">🎧 练听力</span><span class="mini">${st.listening || 0}</span></div>
+      <div class="prow"><span class="name">📖 做阅读</span><span class="mini">${st.reading || 0}</span></div>
+      <div class="prow"><span class="name">✍️ 写作</span><span class="mini">${st.essays || 0}</span></div>
+      <div class="prow"><span class="name">🔁 复习</span><span class="mini">${st.review || 0}</span></div>
+      <div class="prow"><span class="name">🎮 消消乐</span><span class="mini">${st.match || 0}</span></div>
+      <div class="prow"><span class="name"><b>累计学习量</b></span><span class="mini"><b>${st.total || 0}</b></span></div>
       <div class="buff">
-        <span class="chip">⏳ 延长寿命 +${lb} 天</span>
+        <span class="chip">⏳ 一生 ${maxLife()} 天（基础 ${BASE_LIFE} ＋ 延寿 ${lb}）</span>
         <span class="chip">💞 邂逅优质率 +${eb}%</span>
         <span class="chip">🌟 后代天赋上限 +${tb}</span>
       </div>
-      <div class="hint">学习越久，增益越强：① 当前小狗总寿命更长；② 外出更易遇优质伙伴/伴侣；③ 繁育时幼犬天赋上限更高。<br>
-      <b>真实联动</b>：你在单词/听力/阅读/作文模块完成学习，会自动累加这里的增益（也可点上面按钮体验）。</div>`;
-    p.querySelectorAll('button[data-s]').forEach(b => b.onclick = () => {
-      const k = b.dataset.s; const lab = { words: '单词', listening: '听力', reading: '阅读', essays: '写作' }[k];
-      gain(k, 3); say('学了' + lab + '，奶糖获得增益✨');
-    });
+      <div class="hint">学习越久，增益越强：① 陪伴你的时间更长；② 外出更易遇优质伙伴 / 伴侣；③ 繁育时幼犬天赋上限更高。<br>
+      <b>真实联动</b>：在单词 / 听力 / 阅读 / 作文模块完成学习会自动累加，赚到的狗粮也会由系统直接喂给它。</div>`;
   }
   function renderSocial() {
     const p = $('#panel'); if (!p) return; p.dataset.tab = 'social';
@@ -562,55 +631,73 @@ window.CET4Modules = window.CET4Modules || {};
   let toastT; function toast(t) { const el = $('#toast'); if (!el) return; el.textContent = t; el.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 2600); }
 
   /* ============ Tab 切换 ============ */
+  const STAGE_EMOJI = { baby: '🐣', teen: '🐕', adult: '🦮', elder: '🌿' };
+  function growthHTML() {
+    const L = lifeInfo(), m = L.m;
+    const marks = STAGE_ORDER.map((s, i) => {
+      const left = STAGE_BOUND[i] * 100;
+      const cls = 'gm' + (i < L.idx ? ' done' : i === L.idx ? ' cur' : '');
+      return `<span class="${cls}" style="left:${left}%">${STAGE_NAMES[s]}</span>`;
+    }).join('');
+    const nodes = [1, 2, 3].map(i => `<i class="gn${i <= L.idx ? ' on' : ''}" style="left:${STAGE_BOUND[i] * 100}%"></i>`).join('');
+    const next = L.idx < 3
+      ? `距离「<b>${STAGE_NAMES[STAGE_ORDER[L.idx + 1]]}期</b>」还有 <b>${fmtDur(L.remain)}</b>`
+      : `正在安享晚年，还剩 <b>${fmtDur(L.remain)}</b> 的相伴时光`;
+    return `<div class="grow">
+      <div class="grow-head">
+        <span class="gh-stage">${STAGE_EMOJI[m.stage]} ${STAGE_NAMES[m.stage]}期</span>
+        <span class="gh-age">已陪伴 ${fmtDur(L.af)}</span>
+      </div>
+      <div class="grow-track"><div class="grow-fill" style="width:${L.pct.toFixed(2)}%"></div>${nodes}</div>
+      <div class="grow-marks">${marks}</div>
+      <div class="grow-next">${next}</div>
+      <div class="grow-tip">🕒 成长按<b>真实时间</b>走：1 天长 1 岁，页面关着也在长。
+      预计一生 <b>${L.ml} 天</b>（基础 ${BASE_LIFE} 天 ＋ 学习延寿 ${lifeBonus()} 天），学得越多陪你越久。</div>
+    </div>`;
+  }
   const TAB_RENDER = { raise: () => {
     const p = $('#panel'); if (!p) return; p.dataset.tab = 'raise';
     p.innerHTML = `<h3>🐾 养成</h3>
-      <div class="hint">基础互动：喂食 / 抚摸 / 玩耍 / 睡觉（保留汤姆猫手感）。<br>
-      阶段解锁：<b>少年</b>外出交友 · <b>成年</b>恋爱结婚 · <b>老年</b>自然老去。<br>
-      想快进看世代循环，用下方「⏩ 时间」加速，或点「快进一天」。</div>
-      <div class="speed">⏩ 时间：
-        <button data-sp="pause" class="${S.speed === 'pause' ? 'active' : ''}">暂停</button>
-        <button data-sp="slow" class="${S.speed === 'slow' ? 'active' : ''}">慢</button>
-        <button data-sp="mid" class="${S.speed === 'mid' ? 'active' : ''}">中</button>
-        <button data-sp="fast" class="${S.speed === 'fast' ? 'active' : ''}">快</button>
-        <button class="hot" id="ff">快进一天 ▶</button>
-      </div>
-      <div class="debug">
-        🧪 <b>测试入口</b>（默认已暂停老化，可定住年龄专测社交 / 恋爱 / 繁育，不会被老死打断）：
-        <div class="row">
-          <button id="toTeen">跳到少年</button>
-          <button id="toAdult">跳到成年(单身)</button>
-          <button id="toMarried" class="alt">跳到成年(已婚·可直接繁育)</button>
-          <button id="toReset" class="alt">重置为幼犬</button>
-        </div>
-      </div>`;
-    p.querySelectorAll('button[data-sp]').forEach(b => b.onclick = () => { S.speed = b.dataset.sp; save(); renderTab('raise'); });
-    const ff = $('#ff'); if (ff) ff.onclick = () => { if (!busy && !locked) ageTick(); };
-    const js = (id, target) => { const b = $('#' + id); if (b) b.onclick = () => jumpStage(target); };
-    js('toTeen', 'teen'); js('toAdult', 'adult'); js('toMarried', 'married');
-    const rs = $('#toReset'); if (rs) rs.onclick = () => {
-      if (busy) return;
-      const b = makeDog({ id: 'd' + Date.now(), name: '奶糖', gen: S.gen, sex: (Math.random() < 0.5 ? 'M' : 'F'), age: 0 });
-      S.dogs[b.id] = b; S.currentId = b.id; showVisitor(null); closeModal();
-      toast('🐾 已重置为新的幼犬'); say('我是新来的奶糖～'); afterSwitch();
-    };
+      ${growthHTML()}
+      <div class="hint">🍚 <b>自动投喂已开启</b>：背单词 / 做题赚到的狗粮，系统会直接喂给它，你专心学习就行。<br>
+      手动互动：喂食 / 抚摸 / 玩耍 / 睡觉，都会加心情和亲密度。<br>
+      阶段解锁：<b>少年</b>外出交友 · <b>成年</b>恋爱结婚 · <b>老年</b>自然老去。</div>`;
   }, study: renderStudy, social: renderSocial, family: renderFamily, shelf: renderShelf };
   function renderTab(t) { (TAB_RENDER[t] || renderStudy)(); }
+  // 成长进度条每分钟自刷新（只在养成页可见时）
+  function refreshGrowth() {
+    const p = $('#panel'); if (!p || p.dataset.tab !== 'raise') return;
+    const g = p.querySelector('.grow'); if (!g) return;
+    const wrap = document.createElement('div'); wrap.innerHTML = growthHTML();
+    g.replaceWith(wrap.firstElementChild);
+  }
 
   /* ============ 初始化（每次 mount 调用） ============ */
   function startPuppy() {
     refreshS();
+    // 先按真实经过的时间把年龄与状态补算到「此刻」，再渲染
+    decayByTime();
+    const gone = syncAge();
     applyStagePose(); renderTop(); renderBars(); renderActions(); renderTab('raise');
     if (S.currentNPC && npc(S.currentNPC)) showVisitor(npc(S.currentNPC));
     renderShelf();
+    // 若上次离开期间小狗已到寿终，补上告别弹窗（世代传承不会被漏掉）
+    if (!gone && me() && !me().alive) onDeath(me());
     const tabs = root.querySelectorAll('#tabs button');
     tabs.forEach(b => b.onclick = () => {
       root.querySelectorAll('#tabs button').forEach(x => x.classList.remove('active'));
       b.classList.add('active'); renderTab(b.dataset.tab);
     });
-    // 时间推进（默认 pause 不自动老化）
-    const map = { pause: 2500, slow: 6000, mid: 2500, fast: 1000 };
-    setT(() => { if (S.speed !== 'pause') ageTick(); }, map[S.speed] || 2500);
+    // 真实时间心跳：每分钟结算一次状态衰减 + 年龄，并刷新成长进度条
+    setT(() => {
+      if (busy || locked) return;
+      const changed = decayByTime();
+      const aged = syncAge();
+      const m = me();
+      if (m && m.alive && m.hunger < 45) autoFeed(FEED_UNIT * 2, true);   // 饿了自动补粮，不打扰
+      if (changed || aged) { renderBars(); renderTop(); }
+      refreshGrowth();
+    }, 60000);
     // 伴侣 / 幼崽偶尔互动
     setT(() => { if (!busy && !locked) interactBuddy(); }, 8000);
   }
@@ -719,15 +806,24 @@ window.CET4Modules = window.CET4Modules || {};
     .studyBtns button:hover{background:var(--pink-soft);}
     .buff{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
     .buff .chip{background:#fff; border:1px solid #ffd0dd; border-radius:20px; padding:4px 11px; font-size:11px;}
-    .speed{display:flex; gap:6px; align-items:center; font-size:12px; margin-top:8px; color:var(--ink-soft);}
-    .speed button{border:1px solid #ffd0dd; background:#fff; border-radius:10px; padding:4px 9px; cursor:pointer; font-size:11px;}
-    .speed button.active{background:var(--pink); color:#fff; border-color:var(--pink);}
-    .debug{margin-top:12px; padding:10px 12px; background:rgba(255,255,255,.55); border-radius:12px; font-size:12px; color:var(--ink-soft); line-height:1.5;}
-    .debug b{color:var(--pink);}
-    .debug .row{margin-top:7px; display:flex; flex-wrap:wrap; gap:6px;}
-    .debug button{border:none; border-radius:10px; padding:6px 11px; cursor:pointer; font-size:12px; background:#ffe3ec; color:#d6336c;}
-    .debug button:hover{background:#ffd0e0;}
-    .debug button.alt{background:#e7f0ff; color:#2f6fed;}
+    /* —— 成长进度（真实时间驱动） —— */
+    .grow{background:#fff; border:1px solid #ffe3ec; border-radius:14px; padding:12px 13px 10px; box-shadow:0 2px 8px rgba(0,0,0,.04);}
+    .grow-head{display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:9px;}
+    .gh-stage{font-size:14px; font-weight:700; color:var(--ink);}
+    .gh-age{font-size:11px; color:var(--ink-soft);}
+    .grow-track{position:relative; height:11px; border-radius:8px; background:#ffeef3; overflow:visible;}
+    .grow-fill{height:100%; border-radius:8px; background:linear-gradient(90deg,#ffd166,#ff8fab,#b08bd6); transition:width .6s ease;}
+    .grow-track .gn{position:absolute; top:50%; width:7px; height:7px; margin:-3.5px 0 0 -3.5px; border-radius:50%; background:#fff; border:2px solid #ffd0dd; box-sizing:content-box;}
+    .grow-track .gn.on{background:var(--pink); border-color:#fff;}
+    .grow-marks{position:relative; height:15px; margin-top:5px;}
+    .grow-marks .gm{position:absolute; transform:translateX(-50%); font-size:10px; color:var(--ink-soft); white-space:nowrap;}
+    .grow-marks .gm:first-child{transform:none;}
+    .grow-marks .gm.done{color:var(--pink);}
+    .grow-marks .gm.cur{color:var(--pink); font-weight:700;}
+    .grow-next{margin-top:7px; font-size:12px; color:var(--ink);}
+    .grow-next b{color:var(--pink);}
+    .grow-tip{margin-top:6px; font-size:11px; color:var(--ink-soft); line-height:1.55;}
+    .grow-tip b{color:var(--ink);}
     .fam-acts{margin-top:14px;}
     .fam-acts .hot{font-size:14px; padding:10px 18px;}
     .companion{position:absolute; bottom:38px; opacity:0; transition:.45s; pointer-events:none; z-index:6; text-align:center;}
